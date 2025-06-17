@@ -42,4 +42,28 @@ python src/main.py
 - `src/viewmodels/`: MVVM架构中的ViewModel
 - `src/utils/`: 工具函数
 - `src/resources/`: 资源文件
-- `tests/`: 单元测试 
+- `tests/`: 单元测试
+
+## 许可证
+
+本项目采用 GNU Affero General Public License v3.0 (AGPL-3.0) 许可证。
+
+### 许可证说明
+
+AGPL-3.0 是一个强copyleft许可证，要求：
+1. 任何使用、修改或分发本项目的代码都必须开源
+2. 如果通过网络提供服务，必须提供源代码
+3. 必须保留原始版权声明和许可证
+
+### 依赖项许可证
+
+- PyQt6: LGPL v3
+- PyTorch: BSD License
+- OpenCV: Apache 2.0
+- YOLOv8: AGPL-3.0
+- NumPy: BSD License
+- Pillow: HPND License
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request 来改进这个项目。 
