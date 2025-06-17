@@ -1,43 +1,118 @@
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
-                           QHBoxLayout, QPushButton, QLabel, QFileDialog)
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                             QPushButton, QLabel, QComboBox, QFileDialog)
 from PyQt6.QtCore import Qt
-from .components.video_widget import VideoWidget
-from .components.detection_widget import DetectionWidget
+from PyQt6.QtGui import QImage, QPixmap
+import cv2
+import numpy as np
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, view_model):
         super().__init__()
-        self.setWindowTitle("安全帽检测系统")
-        self.setMinimumSize(1200, 800)
+        self.view_model = view_model
+        # 连接信号到槽
+        self.view_model.image_updated.connect(self.update_image)
+        self.view_model.stats_updated.connect(self.update_stats)
+        self.init_ui()
         
-        # 创建主窗口部件
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
+    def init_ui(self):
+        self.setWindowTitle('安全帽检测系统')
+        self.setGeometry(100, 100, 1200, 800)
+        
+        # 创建中央部件
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
         
         # 创建主布局
-        layout = QHBoxLayout(main_widget)
+        main_layout = QHBoxLayout(central_widget)
         
         # 左侧控制面板
         control_panel = QWidget()
         control_layout = QVBoxLayout(control_panel)
         
-        # 添加控制按钮
-        self.btn_open_video = QPushButton("打开视频")
-        self.btn_open_camera = QPushButton("打开摄像头")
-        self.btn_start_detection = QPushButton("开始检测")
-        self.btn_stop_detection = QPushButton("停止检测")
+        # 检测模式选择
+        mode_label = QLabel('检测模式:')
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(['图片检测', '视频检测', '摄像头检测'])
+        self.mode_combo.currentTextChanged.connect(self.on_mode_changed)
         
-        control_layout.addWidget(self.btn_open_video)
-        control_layout.addWidget(self.btn_open_camera)
-        control_layout.addWidget(self.btn_start_detection)
-        control_layout.addWidget(self.btn_stop_detection)
+        # 文件选择按钮
+        self.file_btn = QPushButton('选择文件')
+        self.file_btn.clicked.connect(self.on_file_selected)
+        
+        # 开始检测按钮
+        self.detect_btn = QPushButton('开始检测')
+        self.detect_btn.clicked.connect(self.on_detect_clicked)
+        
+        # 停止检测按钮
+        self.stop_btn = QPushButton('停止检测')
+        self.stop_btn.clicked.connect(self.on_stop_clicked)
+        self.stop_btn.setEnabled(False)
+        
+        # 添加控件到控制面板
+        control_layout.addWidget(mode_label)
+        control_layout.addWidget(self.mode_combo)
+        control_layout.addWidget(self.file_btn)
+        control_layout.addWidget(self.detect_btn)
+        control_layout.addWidget(self.stop_btn)
         control_layout.addStretch()
         
-        # 右侧视频显示区域
-        self.video_widget = VideoWidget()
-        self.detection_widget = DetectionWidget()
+        # 右侧显示区域
+        display_panel = QWidget()
+        display_layout = QVBoxLayout(display_panel)
         
-        # 添加部件到主布局
-        layout.addWidget(control_panel, 1)
-        layout.addWidget(self.video_widget, 4)
-        layout.addWidget(self.detection_widget, 1) 
+        # 图像显示标签
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setMinimumSize(800, 600)
+        self.image_label.setStyleSheet("border: 1px solid #cccccc;")
+        
+        # 统计信息显示
+        self.stats_label = QLabel('检测统计:')
+        self.stats_label.setStyleSheet("font-size: 14px;")
+        
+        display_layout.addWidget(self.image_label)
+        display_layout.addWidget(self.stats_label)
+        
+        # 添加左右面板到主布局
+        main_layout.addWidget(control_panel, 1)
+        main_layout.addWidget(display_panel, 4)
+        
+    def on_mode_changed(self, mode):
+        self.view_model.set_detection_mode(mode)
+        self.file_btn.setEnabled(mode != '摄像头检测')
+        
+    def on_file_selected(self):
+        mode = self.mode_combo.currentText()
+        if mode == '图片检测':
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, '选择图片', '', 'Images (*.png *.jpg *.jpeg)')
+        else:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, '选择视频', '', 'Videos (*.mp4 *.avi)')
+            
+        if file_path:
+            self.view_model.set_source(file_path)
+        
+    def on_detect_clicked(self):
+        self.detect_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.view_model.start_detection()
+        
+    def on_stop_clicked(self):
+        self.detect_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+        self.view_model.stop_detection()
+        
+    def update_image(self, image):
+        if isinstance(image, np.ndarray):
+            # 将BGR转换为RGB
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            height, width, channel = rgb_image.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(rgb_image.data.tobytes(), width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            pixmap = QPixmap.fromImage(q_image)
+            self.image_label.setPixmap(pixmap.scaled(
+                self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio))
+            
+    def update_stats(self, stats):
+        self.stats_label.setText(f'检测统计: {stats}') 
