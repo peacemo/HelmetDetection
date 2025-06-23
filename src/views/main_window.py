@@ -32,7 +32,7 @@ class MainWindow(QMainWindow):
         # 检测模式选择
         mode_label = QLabel('检测模式:')
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(['图片检测', '视频检测', '摄像头检测'])
+        self.mode_combo.addItems(['图片检测', '视频检测', '摄像头检测', '文件夹检测'])
         self.mode_combo.currentTextChanged.connect(self.on_mode_changed)
         
         # 文件选择按钮
@@ -66,11 +66,23 @@ class MainWindow(QMainWindow):
         self.image_label.setMinimumSize(800, 600)
         self.image_label.setStyleSheet("border: 1px solid #cccccc;")
         
+        # 新增上一张、下一张按钮
+        nav_layout = QHBoxLayout()
+        self.prev_btn = QPushButton('上一张')
+        self.next_btn = QPushButton('下一张')
+        self.prev_btn.clicked.connect(self.on_prev_clicked)
+        self.next_btn.clicked.connect(self.on_next_clicked)
+        self.prev_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)
+        nav_layout.addWidget(self.prev_btn)
+        nav_layout.addWidget(self.next_btn)
+        
         # 统计信息显示
         self.stats_label = QLabel('检测统计:')
         self.stats_label.setStyleSheet("font-size: 14px;")
         
         display_layout.addWidget(self.image_label)
+        display_layout.addLayout(nav_layout)
         display_layout.addWidget(self.stats_label)
         
         # 添加左右面板到主布局
@@ -79,6 +91,14 @@ class MainWindow(QMainWindow):
         
     def on_mode_changed(self, mode):
         self.view_model.set_detection_mode(mode)
+        if mode == '文件夹检测':
+            self.file_btn.setText('选择文件夹')
+            self.prev_btn.setEnabled(False)
+            self.next_btn.setEnabled(False)
+        else:
+            self.file_btn.setText('选择文件')
+            self.prev_btn.setEnabled(False)
+            self.next_btn.setEnabled(False)
         self.file_btn.setEnabled(mode != '摄像头检测')
         
     def on_file_selected(self):
@@ -86,12 +106,19 @@ class MainWindow(QMainWindow):
         if mode == '图片检测':
             file_path, _ = QFileDialog.getOpenFileName(
                 self, '选择图片', '', 'Images (*.png *.jpg *.jpeg)')
+            if file_path:
+                self.view_model.set_source(file_path)
+        elif mode == '文件夹检测':
+            folder_path = QFileDialog.getExistingDirectory(self, '选择文件夹', '')
+            if folder_path:
+                self.view_model.set_folder_source(folder_path)
+                self.prev_btn.setEnabled(True)
+                self.next_btn.setEnabled(True)
         else:
             file_path, _ = QFileDialog.getOpenFileName(
                 self, '选择视频', '', 'Videos (*.mp4 *.avi)')
-            
-        if file_path:
-            self.view_model.set_source(file_path)
+            if file_path:
+                self.view_model.set_source(file_path)
         
     def on_detect_clicked(self):
         self.detect_btn.setEnabled(False)
@@ -102,6 +129,11 @@ class MainWindow(QMainWindow):
         self.detect_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.view_model.stop_detection()
+        
+    def on_prev_clicked(self):
+        self.view_model.prev_image()
+    def on_next_clicked(self):
+        self.view_model.next_image()
         
     def update_image(self, image):
         if isinstance(image, np.ndarray):
